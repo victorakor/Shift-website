@@ -1,0 +1,57 @@
+{{define "content"}}
+<div style="margin-bottom:24px;">
+  <h2>Welcome back, {{.User.GameName}}</h2>
+  <p class="muted">
+    <span class="rank-badge" style="color:{{.RankColor}}">{{.User.Rank}}</span>
+    &nbsp;·&nbsp; Level {{.User.Level}} &nbsp;·&nbsp; {{.User.Wins}}W / {{.User.Losses}}L
+  </p>
+</div>
+
+<div class="nav-grid">
+  <a href="/lobby" style="text-decoration:none; color:inherit;">
+    <div class="vault-card vault-card--player vault-card--hover">
+      <div class="avatar">🎮</div>
+      <div class="meta"><div class="name">Online Lobby</div><div class="muted" style="font-size:0.8rem;">Find an opponent</div></div>
+    </div>
+  </a>
+  <a href="/play-computer" style="text-decoration:none; color:inherit;">
+    <div class="vault-card vault-card--player vault-card--hover">
+      <div class="avatar">🤖</div>
+      <div class="meta"><div class="name">Play vs Computer</div><div class="muted" style="font-size:0.8rem;">Practice offline</div></div>
+    </div>
+  </a>
+  <a href="/leaderboard" style="text-decoration:none; color:inherit;">
+    <div class="vault-card vault-card--player vault-card--hover">
+      <div class="avatar">🏆</div>
+      <div class="meta"><div class="name">Leaderboard</div><div class="muted" style="font-size:0.8rem;">See the top players</div></div>
+    </div>
+  </a>
+  <a href="/profile" style="text-decoration:none; color:inherit;">
+    <div class="vault-card vault-card--player vault-card--hover">
+      <div class="avatar">👤</div>
+      <div class="meta"><div class="name">Profile</div><div class="muted" style="font-size:0.8rem;">Your stats & history</div></div>
+    </div>
+  </a>
+  <a href="/settings" style="text-decoration:none; color:inherit;">
+    <div class="vault-card vault-card--player vault-card--hover">
+      <div class="avatar">⚙️</div>
+      <div class="meta"><div class="name">Settings</div><div class="muted" style="font-size:0.8rem;">Preferences & account</div></div>
+    </div>
+  </a>
+  <a href="#" onclick="logout(); return false;" style="text-decoration:none; color:inherit;">
+    <div class="vault-card vault-card--player vault-card--hover">
+      <div class="avatar">🚪</div>
+      <div class="meta"><div class="name">Log Out</div><div class="muted" style="font-size:0.8rem;">See you next heist</div></div>
+    </div>
+  </a>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+async function logout() {
+  await apiFetch('/api/logout', { method: 'POST' });
+  window.location.href = '/register';
+}
+</script>
+{{end}}

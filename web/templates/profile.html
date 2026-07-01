@@ -1,0 +1,25 @@
+{{define "content"}}
+<h2 style="margin-bottom:16px;">Your Profile</h2>
+<div class="vault-card vault-card--player vault-card--{{.RankSlug}}" style="flex-direction:column; align-items:center; text-align:center; padding:32px;">
+  <div class="level-ring" id="level-ring" style="margin-bottom:16px;"></div>
+  <h3 class="display">{{.User.GameName}}</h3>
+  <span class="rank-badge" style="color:{{.RankColor}}">{{.User.Rank}}</span>
+  <div class="stat-2x2" style="width:100%; max-width:320px;">
+    <div class="sub-card"><div class="value">{{.User.Wins}}</div><div class="label">Wins</div></div>
+    <div class="sub-card"><div class="value">{{.User.Losses}}</div><div class="label">Losses</div></div>
+    <div class="sub-card"><div class="value">{{.User.MatchesPlayed}}</div><div class="label">Matches</div></div>
+    <div class="sub-card"><div class="value">{{printf "%.1f" .User.WinRate}}%</div><div class="label">Win Rate</div></div>
+  </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+document.getElementById('level-ring').innerHTML = levelRingSVG({{.User.Wins}}, 64) +
+  `<div class="avatar" style="position:absolute; font-size:1.5rem;">🧑</div>`;
+document.getElementById('level-ring').style.position = 'relative';
+document.getElementById('level-ring').style.display = 'inline-flex';
+document.getElementById('level-ring').style.alignItems = 'center';
+document.getElementById('level-ring').style.justifyContent = 'center';
+</script>
+{{end}}

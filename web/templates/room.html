@@ -1,0 +1,214 @@
+{{define "content"}}
+<div id="room-root">
+  <div class="vault-card vault-card--empty pulse">Connecting to room…</div>
+</div>
+<div id="celebration-root"></div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+const MY_ID = "{{.User.ID}}";
+const ROOM_ID = "{{.RoomID}}";
+const root = document.getElementById('room-root');
+
+let roomState = null;
+let matchInfo = null;
+let phaseState = null;
+let scores = { };
+let timerInterval = null;
+
+function fmtRank(rank) { return rank || 'Rookie'; }
+
+function renderWaitingRoom() {
+  root.innerHTML = '';
+  const other = roomState.playerA === MY_ID ? roomState.playerB : roomState.playerA;
+  const iAmReady = roomState.playerA === MY_ID ? roomState.readyA : roomState.readyB;
+  const theyReady = roomState.playerA === MY_ID ? roomState.readyB : roomState.readyA;
+
+  const wrap = el('div', { style: 'display:flex; gap:16px; flex-wrap:wrap; align-items:center; justify-content:center;' }, [
+    el('div', { class: 'vault-card vault-card--player' + (iAmReady ? ' vault-card--success' : '') }, [
+      el('div', { class: 'avatar' }, '🧑'),
+      el('div', { class: 'meta' }, [ el('div', { class: 'name' }, 'You'), el('div', { class: 'muted' }, iAmReady ? 'Ready' : 'Not ready') ]),
+    ]),
+    el('div', { class: 'vs-divider' }, 'VS'),
+    el('div', { class: 'vault-card vault-card--player' + (theyReady ? ' vault-card--success' : '') }, [
+      el('div', { class: 'avatar' }, '🕵️'),
+      el('div', { class: 'meta' }, [ el('div', { class: 'name' }, 'Opponent'), el('div', { class: 'muted' }, theyReady ? 'Ready' : 'Not ready') ]),
+    ]),
+  ]);
+  root.appendChild(wrap);
+  const btnRow = el('div', { style: 'display:flex; gap:8px; justify-content:center; margin-top:24px;' }, [
+    el('button', { onclick: setReady, disabled: iAmReady }, iAmReady ? 'Waiting for opponent…' : 'Ready Up'),
+    el('button', { class: 'secondary', onclick: leaveRoom }, 'Leave'),
+  ]);
+  root.appendChild(btnRow);
+}
+
+function setReady() {
+  shiftSocket.send('set_ready', { roomId: ROOM_ID });
+}
+function leaveRoom() {
+  shiftSocket.send('leave_room', { roomId: ROOM_ID });
+  window.location.href = '/lobby';
+}
+
+function startTimer(deadlineMs, totalMs) {
+  clearInterval(timerInterval);
+  const bar = document.getElementById('hud-bar-fill');
+  const label = document.getElementById('hud-timer-label');
+  function tick() {
+    const remaining = Math.max(0, deadlineMs - Date.now());
+    const pct = totalMs > 0 ? (remaining / totalMs) * 100 : 0;
+    if (bar) {
+      bar.style.width = pct + '%';
+      bar.classList.toggle('urgent', pct <= 20);
+    }
+    if (label) label.textContent = Math.ceil(remaining / 1000) + 's';
+    if (remaining <= 0) clearInterval(timerInterval);
+  }
+  tick();
+  timerInterval = setInterval(tick, 200);
+}
+
+function objectCard(obj, opts = {}) {
+  const flipWrap = el('div', { class: 'object-card-flip vault-card' + (opts.flipped ? ' is-flipped' : ''), style: 'height:100px; padding:0;' });
+  const inner = el('div', { class: 'object-card-inner' });
+  const front = el('div', { class: 'object-card-face front' + (opts.selectable ? ' selectable' : '') + (opts.wrong ? ' wrong' : '') }, [
+    el('div', { class: 'emoji' }, obj.emoji || '📦'),
+    el('div', { class: 'obj-name' }, obj.name || ''),
+  ]);
+  if (opts.selectable) front.addEventListener('click', () => opts.onSelect(obj));
+  const back = el('div', { class: 'object-card-face back' });
+  inner.appendChild(front);
+  inner.appendChild(back);
+  flipWrap.appendChild(inner);
+  return flipWrap;
+}
+
+function renderScoreHeader(scores) {
+  const a = scores[roomState.playerA] || 0;
+  const b = scores[roomState.playerB] || 0;
+  const mine = roomState.playerA === MY_ID ? a : b;
+  const theirs = roomState.playerA === MY_ID ? b : a;
+  return el('div', { style: 'display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;' }, [
+    el('div', { class: 'score-value' }, String(mine)),
+    el('div', { class: 'muted' }, 'You vs Opponent'),
+    el('div', { class: 'score-value' }, String(theirs)),
+  ]);
+}
+
+function renderMemorization(msg) {
+  root.innerHTML = '';
+  root.appendChild(renderScoreHeader(msg.scores || {}));
+  root.appendChild(el('h3', { style: 'margin-bottom:8px;' }, `Round ${msg.roundNumber} — Memorize your objects`));
+  root.appendChild(el('div', { id: 'hud-timer-label', class: 'mono muted', style: 'margin-bottom:8px;' }, ''));
+  root.appendChild(el('div', { class: 'hud-timer', style: 'margin-bottom:16px;' }, [ el('div', { class: 'bar' }, [ el('div', { id: 'hud-bar-fill', class: 'bar-fill', style: 'width:100%' }) ]) ]));
+  const grid = el('div', { class: 'object-grid' });
+  (msg.yourObjects || []).forEach(o => grid.appendChild(objectCard(o)));
+  root.appendChild(grid);
+  startTimer(msg.deadline, (msg.deadline - Date.now()));
+}
+
+function renderStealing(msg) {
+  root.innerHTML = '';
+  root.appendChild(el('div', { id: 'hud-timer-label', class: 'mono muted', style: 'margin-bottom:8px;' }, ''));
+  root.appendChild(el('div', { class: 'hud-timer', style: 'margin-bottom:16px;' }, [ el('div', { class: 'bar' }, [ el('div', { id: 'hud-bar-fill', class: 'bar-fill', style: 'width:100%' }) ]) ]));
+  if (msg.role === 'stealer') {
+    root.appendChild(el('h3', { style: 'margin-bottom:8px;' }, 'Pick an object to steal from your opponent'));
+    const grid = el('div', { class: 'object-grid' });
+    (msg.opponentObjects || []).forEach(o => grid.appendChild(objectCard(o, { selectable: true, onSelect: (obj) => {
+      shiftSocket.send('submit_steal', { roomId: ROOM_ID, objectId: obj.id });
+    }})));
+    root.appendChild(grid);
+  } else {
+    root.appendChild(el('div', { class: 'vault-card vault-card--empty pulse' }, 'Opponent is choosing what to steal…'));
+  }
+  startTimer(msg.deadline, msg.deadline - Date.now());
+}
+
+function renderGuessing(msg) {
+  root.innerHTML = '';
+  root.appendChild(el('div', { id: 'hud-timer-label', class: 'mono muted', style: 'margin-bottom:8px;' }, ''));
+  root.appendChild(el('div', { class: 'hud-timer', style: 'margin-bottom:16px;' }, [ el('div', { class: 'bar' }, [ el('div', { id: 'hud-bar-fill', class: 'bar-fill', style: 'width:100%' }) ]) ]));
+  if (msg.role === 'guesser') {
+    root.appendChild(el('h3', {}, `Guess what was stolen — ${msg.guessesRemaining} attempt(s) left`));
+    const grid = el('div', { class: 'object-grid' });
+    const wrongIds = new Set(msg.wrongGuesses || []);
+    (msg.yourObjects || []).forEach(o => grid.appendChild(objectCard(o, {
+      selectable: !wrongIds.has(o.id), wrong: wrongIds.has(o.id),
+      onSelect: (obj) => shiftSocket.send('submit_guess', { roomId: ROOM_ID, objectId: obj.id }),
+    })));
+    root.appendChild(grid);
+  } else {
+    root.appendChild(el('div', { class: 'vault-card vault-card--empty pulse' }, 'Opponent is guessing…'));
+  }
+  startTimer(msg.deadline, msg.deadline - Date.now());
+}
+
+function renderRoundResult(msg) {
+  clearInterval(timerInterval);
+  root.innerHTML = '';
+  const kind = msg.correct ? 'success' : 'danger';
+  root.appendChild(el('div', { class: `vault-card vault-card--${kind}`, style: 'text-align:center; padding:32px;' }, [
+    el('div', { style: 'font-size:2.5rem;' }, msg.stolenObject.emoji || '📦'),
+    el('h3', {}, msg.stolenObject.name || ''),
+    el('div', { class: 'muted', style: 'margin-top:8px;' }, msg.correct ? 'Correctly guessed!' : (msg.afkForfeit ? 'Time ran out — point forfeited' : 'Wrong guess')),
+  ]));
+  root.appendChild(renderScoreHeader(msg.scores || {}));
+}
+
+function renderMatchComplete(msg) {
+  clearInterval(timerInterval);
+  root.innerHTML = '';
+  const iWon = msg.winnerId === MY_ID;
+  const a = msg.scores[roomState.playerA] || 0;
+  const b = msg.scores[roomState.playerB] || 0;
+  root.appendChild(el('div', { class: `vault-card vault-card--${iWon ? 'success' : 'danger'}`, style: 'text-align:center; padding:32px;' }, [
+    el('h2', {}, iWon ? 'Victory!' : 'Defeat'),
+    el('div', { class: 'score-value' }, `${a} — ${b}`),
+    el('a', { class: 'btn', href: '/lobby', style: 'display:inline-block; margin-top:16px; text-decoration:none;' }, 'Back to Lobby'),
+  ]));
+
+  const overlayFlag = (roomState.playerA === MY_ID) ? (msg.winnerRankUp || msg.winnerLevelUp) && iWon
+    : null;
+  const rankedUp = iWon ? (msg.winnerRankUp) : (msg.loserRankUp);
+  const leveledUp = iWon ? (msg.winnerLevelUp) : (msg.loserLevelUp);
+  if (rankedUp || leveledUp) {
+    showCelebration(iWon ? msg.winnerNewRank : null, iWon ? msg.winnerNewLevel : null);
+  }
+}
+
+function showCelebration(newRank, newLevel) {
+  const cont = document.getElementById('celebration-root');
+  const overlay = el('div', { class: 'celebration-overlay' }, [
+    el('div', { class: 'big-rank' }, newRank ? `Rank Up: ${newRank}!` : `Level Up!`),
+    el('button', { class: 'secondary', onclick: () => overlay.remove() }, 'Continue'),
+  ]);
+  cont.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 2000);
+}
+
+shiftSocket.on('room_state', (msg) => {
+  roomState = msg;
+  if (msg.status === 'waiting') renderWaitingRoom();
+});
+shiftSocket.on('match_starting', (msg) => { matchInfo = msg; });
+shiftSocket.on('phase_update', (msg) => {
+  if (msg.phase === 'memorization') renderMemorization(msg);
+  else if (msg.phase === 'stealing') renderStealing(msg);
+  else if (msg.phase === 'guessing') renderGuessing(msg);
+  else if (msg.phase === 'sudden_death') {
+    root.innerHTML = '';
+    root.appendChild(el('div', { class: 'vault-card vault-card--pending', style: 'text-align:center; padding:24px;' }, 'Sudden Death!'));
+  }
+});
+shiftSocket.on('round_result', renderRoundResult);
+shiftSocket.on('match_complete', renderMatchComplete);
+shiftSocket.on('error', (msg) => toast(msg.message || 'Error', 'danger'));
+
+// Ask the room for a resync in case room_state doesn't arrive automatically.
+window.addEventListener('load', () => {
+  shiftSocket.send('resync', { roomId: ROOM_ID });
+});
+</script>
+{{end}}

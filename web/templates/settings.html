@@ -1,0 +1,41 @@
+{{define "content"}}
+<h2 style="margin-bottom:16px;">Settings</h2>
+<div style="max-width:480px;">
+  <div class="settings-row">
+    <span>Sound effects</span>
+    <input type="checkbox" id="sound-toggle" {{if .User.SoundEnabled}}checked{{end}}>
+  </div>
+  <div class="settings-row">
+    <span>Match notifications</span>
+    <input type="checkbox" id="notify-toggle" {{if .User.NotifyEnabled}}checked{{end}}>
+  </div>
+  <div class="settings-row">
+    <span>Log out</span>
+    <button class="secondary" onclick="logout()">Log Out</button>
+  </div>
+  <div class="settings-row">
+    <span>Delete account</span>
+    <button class="danger" onclick="deleteAccount()">Delete</button>
+  </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+document.getElementById('sound-toggle').addEventListener('change', (e) => {
+  apiFetch('/api/users/me', { method: 'PATCH', body: JSON.stringify({ soundEnabled: e.target.checked }) });
+});
+document.getElementById('notify-toggle').addEventListener('change', (e) => {
+  apiFetch('/api/users/me', { method: 'PATCH', body: JSON.stringify({ notifyEnabled: e.target.checked }) });
+});
+async function logout() {
+  await apiFetch('/api/logout', { method: 'POST' });
+  window.location.href = '/register';
+}
+async function deleteAccount() {
+  if (!confirm('This will anonymize your account and log you out permanently. Continue?')) return;
+  await apiFetch('/api/users/me', { method: 'DELETE' });
+  window.location.href = '/register';
+}
+</script>
+{{end}}

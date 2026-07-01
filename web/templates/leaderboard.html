@@ -1,0 +1,46 @@
+{{define "content"}}
+<h2 style="margin-bottom:16px;">Leaderboard</h2>
+<div id="lb-rows" style="display:flex; flex-direction:column; gap:12px;"></div>
+<div style="text-align:center; margin-top:16px;">
+  <button id="load-more" onclick="loadMore()">Load More</button>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+const MY_ID = "{{.User.ID}}";
+let cursor = 0;
+
+function statBlock(value, label) {
+  return el('div', { class: 'stat-block' }, [
+    el('div', { class: 'value' }, String(value)),
+    el('div', { class: 'label' }, label),
+  ]);
+}
+
+function renderRow(row) {
+  const isSelf = row.id === MY_ID;
+  return el('div', { class: `vault-card vault-card--leaderboard-row vault-card--${rankSlug(row.rank)}` + (isSelf ? ' is-self' : '') }, [
+    el('div', { class: 'position display' }, String(row.position)),
+    el('div', { class: 'avatar' }, row.avatarUrl || '🕵️'),
+    el('div', { class: 'meta', style: 'flex:1;' }, [
+      el('div', { class: 'name' }, row.gameName + (isSelf ? ' (you)' : '')),
+      el('span', { class: 'rank-badge', style: `color:${rankColor(row.rank)}` }, row.rank),
+    ]),
+    statBlock(row.wins, 'Wins'),
+    statBlock(row.losses, 'Losses'),
+    statBlock(row.winRate + '%', 'Win Rate'),
+  ]);
+}
+
+async function loadMore() {
+  const data = await apiFetch(`/api/leaderboard?cursor=${cursor}&limit=25`);
+  const container = document.getElementById('lb-rows');
+  data.rows.forEach(row => container.appendChild(renderRow(row)));
+  cursor = data.nextCursor;
+  document.getElementById('load-more').style.display = data.hasMore ? 'inline-block' : 'none';
+}
+
+loadMore();
+</script>
+{{end}}

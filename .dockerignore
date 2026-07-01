@@ -1,0 +1,4 @@
+shift_data.json
+shift_data.json.tmp
+*.log
+.git

@@ -1,0 +1,29 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} — SHIFT</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+  {{if .LoggedIn}}
+  <nav class="top-nav">
+    <a href="/" class="display" style="font-size:1.3rem;">SHIFT</a>
+    <div style="display:flex; gap:16px; align-items:center;">
+      <a href="/lobby">Lobby</a>
+      <a href="/leaderboard">Leaderboard</a>
+      <a href="/profile">Profile</a>
+      <a href="/settings">Settings</a>
+    </div>
+  </nav>
+  {{end}}
+  <main class="container">
+    {{template "content" .}}
+  </main>
+  <script src="/static/js/common.js"></script>
+  {{if .LoggedIn}}<script src="/static/js/wsclient.js"></script>{{end}}
+  {{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}

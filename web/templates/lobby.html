@@ -1,0 +1,97 @@
+{{define "content"}}
+<h2 style="margin-bottom:16px;">Online Lobby</h2>
+<div id="lobby-grid" class="card-grid">
+  <div class="vault-card vault-card--empty pulse">Looking for players…</div>
+</div>
+
+<div id="challenge-modal" class="modal-backdrop" style="display:none;"></div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+const MY_ID = "{{.User.ID}}";
+let players = [];
+
+function renderLobby() {
+  const grid = document.getElementById('lobby-grid');
+  grid.innerHTML = '';
+  const others = players.filter(p => p.userId !== MY_ID);
+  if (others.length === 0) {
+    grid.appendChild(el('div', { class: 'vault-card vault-card--empty' }, [
+      el('div', {}, 'No players online right now.'),
+      el('a', { class: 'btn', href: '/play-computer' }, 'Play vs Computer instead'),
+    ]));
+    return;
+  }
+  others.forEach(p => {
+    const card = el('div', { class: `vault-card vault-card--player vault-card--hover vault-card--${rankSlug(p.rank)}` }, [
+      el('div', { class: 'avatar' }, p.avatarUrl || '🕵️'),
+      el('div', { class: 'meta' }, [
+        el('div', { class: 'name' }, p.gameName),
+        el('div', {}, [
+          el('span', { class: 'rank-badge', style: `color:${rankColor(p.rank)}` }, p.rank),
+        ]),
+        el('div', { class: 'mono muted', style: 'font-size:0.75rem;' }, `${p.wins} wins`),
+        el('div', {}, [ el('span', { class: 'status-dot online' }), 'Online' ]),
+      ]),
+      el('button', { onclick: () => sendChallenge(p) }, 'Challenge'),
+    ]);
+    grid.appendChild(card);
+  });
+}
+
+function sendChallenge(p) {
+  shiftSocket.send('send_challenge', {
+    targetUserId: p.userId, matchType: 'ranked', difficulty: 'medium', mode: 'standard',
+  });
+  toast(`Challenge sent to ${p.gameName}`, 'pending');
+}
+
+shiftSocket.on('presence_update', (msg) => {
+  players = msg.players || [];
+  renderLobby();
+});
+
+shiftSocket.on('challenge_received', (msg) => {
+  showChallengeModal(msg);
+});
+
+shiftSocket.on('challenge_declined', (msg) => {
+  toast('Your challenge was declined.', 'danger');
+});
+
+shiftSocket.on('challenge_expired', (msg) => {
+  toast('Your challenge expired.', 'pending');
+});
+
+shiftSocket.on('match_found', (msg) => {
+  window.location.href = `/room/${msg.roomId}`;
+});
+
+shiftSocket.on('error', (msg) => {
+  toast(msg.message || 'Something went wrong', 'danger');
+});
+
+function showChallengeModal(msg) {
+  const backdrop = document.getElementById('challenge-modal');
+  backdrop.innerHTML = '';
+  backdrop.style.display = 'flex';
+  const card = el('div', { class: 'vault-card vault-card--pending vault-card--player', style: 'flex-direction:column; align-items:flex-start;' }, [
+    el('h3', {}, `${msg.gameName} challenged you!`),
+    el('div', { class: 'muted' }, `${msg.matchType} · ${msg.difficulty} · ${msg.mode}`),
+    el('div', { style: 'display:flex; gap:8px; margin-top:16px; width:100%;' }, [
+      el('button', { onclick: () => respond(msg.challengeId, true) }, 'Accept'),
+      el('button', { class: 'secondary', onclick: () => respond(msg.challengeId, false) }, 'Decline'),
+    ]),
+  ]);
+  backdrop.appendChild(card);
+}
+
+function respond(challengeId, accept) {
+  shiftSocket.send('respond_challenge', { challengeId, accept });
+  document.getElementById('challenge-modal').style.display = 'none';
+}
+
+shiftSocket.send('join_lobby');
+</script>
+{{end}}

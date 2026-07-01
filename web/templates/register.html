@@ -1,0 +1,72 @@
+{{define "content"}}
+<div style="max-width:400px; margin: 64px auto; text-align:center;">
+  <h1 class="display" style="margin-bottom: 8px;">SHIFT</h1>
+  <p class="muted" style="margin-bottom: 32px;">Steal it. Guess it. Shift the score.</p>
+
+  <div style="display:flex; gap:8px; margin-bottom:24px; justify-content:center;">
+    <button id="tab-register" onclick="showTab('register')">Register</button>
+    <button id="tab-recover" class="secondary" onclick="showTab('recover')">Recover Account</button>
+  </div>
+
+  <form id="register-form" class="stack" style="margin:0;">
+    <input type="text" id="reg-name" placeholder="Game name (3-20 letters/numbers/_)" required>
+    <input type="password" inputmode="numeric" pattern="\d{6}" maxlength="6" id="reg-secret" placeholder="6-digit secret number" required>
+    <button type="submit">Create Account</button>
+    <div class="error-text" id="reg-error"></div>
+  </form>
+
+  <form id="recover-form" class="stack" style="margin:0; display:none;">
+    <input type="text" id="rec-name" placeholder="Game name" required>
+    <input type="password" inputmode="numeric" pattern="\d{6}" maxlength="6" id="rec-secret" placeholder="6-digit secret number" required>
+    <button type="submit">Recover Account</button>
+    <div class="error-text" id="rec-error"></div>
+  </form>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+function showTab(which) {
+  document.getElementById('register-form').style.display = which === 'register' ? 'flex' : 'none';
+  document.getElementById('recover-form').style.display = which === 'recover' ? 'flex' : 'none';
+  document.getElementById('tab-register').className = which === 'register' ? '' : 'secondary';
+  document.getElementById('tab-recover').className = which === 'recover' ? '' : 'secondary';
+}
+
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errBox = document.getElementById('reg-error');
+  errBox.textContent = '';
+  try {
+    await apiFetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        gameName: document.getElementById('reg-name').value,
+        secretNumber: document.getElementById('reg-secret').value,
+      }),
+    });
+    window.location.href = '/';
+  } catch (err) {
+    errBox.textContent = err.message;
+  }
+});
+
+document.getElementById('recover-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errBox = document.getElementById('rec-error');
+  errBox.textContent = '';
+  try {
+    await apiFetch('/api/recover', {
+      method: 'POST',
+      body: JSON.stringify({
+        gameName: document.getElementById('rec-name').value,
+        secretNumber: document.getElementById('rec-secret').value,
+      }),
+    });
+    window.location.href = '/';
+  } catch (err) {
+    errBox.textContent = err.message;
+  }
+});
+</script>
+{{end}}

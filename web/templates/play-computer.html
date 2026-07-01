@@ -1,0 +1,29 @@
+{{define "content"}}
+<h2 style="margin-bottom:8px;">Play vs Computer</h2>
+<p class="muted" style="margin-bottom:16px;">Practice mode — doesn't affect your rank.</p>
+<div id="setup-card" class="vault-card vault-card--player" style="flex-direction:column; align-items:flex-start; gap:12px; padding:24px;">
+  <label>Difficulty
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+  </label>
+  <button onclick="startGame()">Start</button>
+</div>
+<div id="game-root"></div>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/js/ai.js"></script>
+<script>
+function statBlock(v,l){return el('div',{class:'stat-block'},[el('div',{class:'value'},String(v)),el('div',{class:'label'},l)]);}
+
+async function startGame() {
+  const difficulty = document.getElementById('difficulty').value;
+  document.getElementById('setup-card').style.display = 'none';
+  const game = new VsComputerGame(difficulty, document.getElementById('game-root'));
+  await game.start();
+}
+</script>
+{{end}}
